@@ -143,6 +143,19 @@ def add_crime(crime:dict):
     conn.close()
     return {"message": "Crimen agregado", "id": new_id}
 
+@app.delete("/crimes/{crime_id}")
+def delete_crime(crime_id: int):
+    """Elimina un crimen por su ID."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM crimes WHERE id = ?", (crime_id,))
+    if not cursor.fetchone():
+        conn.close()
+        return {"error": f"No existe un crimen con id {crime_id}"}
+    cursor.execute("DELETE FROM crimes WHERE id = ?", (crime_id,))
+    conn.commit()
+    conn.close()
+    return {"message": "Crimen eliminado", "id": crime_id}
 
 # ------------ CAIs -------------
 
