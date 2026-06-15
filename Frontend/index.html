@@ -1,1 +1,522 @@
-<!-- HTML -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Criminalidad Bogotá</title>
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg:        #0d1117;
+      --panel:     #161b22;
+      --border:    #30363d;
+      --accent:    #e05c2a;
+      --accent2:   #f0a500;
+      --text:      #e6edf3;
+      --muted:     #8b949e;
+      --danger:    #f85149;
+      --safe:      #3fb950;
+      --font-mono: 'Courier New', monospace;
+      --font-ui:   'Segoe UI', system-ui, sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-ui);
+      height: 100vh;
+      display: grid;
+      grid-template-rows: 52px 1fr;
+      grid-template-columns: 320px 1fr;
+      grid-template-areas:
+        "header header"
+        "sidebar map";
+    }
+
+    /* ── HEADER ── */
+    header {
+      grid-area: header;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 12px;
+    }
+    header .dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+    header h1 {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text);
+    }
+    header h1 span { color: var(--accent); }
+    .header-right {
+      margin-left: auto;
+      font-size: 12px;
+      color: var(--muted);
+      font-family: var(--font-mono);
+    }
+    #total-badge {
+      color: var(--accent);
+      font-weight: bold;
+    }
+
+    /* ── SIDEBAR ── */
+    aside {
+      grid-area: sidebar;
+      background: var(--panel);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+    .section {
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .section-title {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    /* Filtros */
+    label {
+      display: block;
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 4px;
+      margin-top: 10px;
+    }
+    label:first-of-type { margin-top: 0; }
+    select, input[type="date"] {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 7px 10px;
+      font-size: 13px;
+      font-family: var(--font-ui);
+      appearance: none;
+    }
+    select:focus, input[type="date"]:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .btn-group { display: flex; gap: 8px; margin-top: 14px; }
+    button {
+      flex: 1;
+      padding: 8px;
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    button:hover { opacity: 0.85; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-secondary { background: var(--border); color: var(--text); }
+
+    /* Toggle CAIs */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+    }
+    .toggle {
+      position: relative;
+      width: 36px; height: 20px;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; inset: 0;
+      background: var(--border);
+      border-radius: 20px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .slider:before {
+      content: '';
+      position: absolute;
+      width: 14px; height: 14px;
+      left: 3px; top: 3px;
+      background: white;
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+    input:checked + .slider { background: var(--accent); }
+    input:checked + .slider:before { transform: translateX(16px); }
+
+    /* Estadísticas */
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .stat-row:last-child { border-bottom: none; }
+    .stat-label { color: var(--muted); }
+    .stat-bar-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 55%;
+    }
+    .stat-bar {
+      flex: 1;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .stat-bar-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      transition: width 0.4s ease;
+    }
+    .stat-count {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--accent2);
+      min-width: 20px;
+      text-align: right;
+    }
+
+    /* Franja horaria */
+    .hora-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .hora-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+      text-align: center;
+    }
+    .hora-card .hora-val {
+      font-size: 22px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      color: var(--accent2);
+    }
+    .hora-card .hora-lbl {
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    /* ── MAPA ── */
+    #map {
+      grid-area: map;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Loading */
+    #loading {
+      position: fixed;
+      inset: 0;
+      background: rgba(13,17,23,0.85);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      font-size: 14px;
+      color: var(--muted);
+      gap: 10px;
+    }
+    .spinner {
+      width: 20px; height: 20px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Scrollbar */
+    aside::-webkit-scrollbar { width: 4px; }
+    aside::-webkit-scrollbar-track { background: var(--panel); }
+    aside::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  </style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  Cargando datos...
+</div>
+
+<!-- HEADER -->
+<header>
+  <div class="dot"></div>
+  <h1>Mapa de <span>Criminalidad</span> — Bogotá</h1>
+  <div class="header-right">
+    Total de registros: <span id="total-badge">—</span>
+  </div>
+</header>
+
+<!-- SIDEBAR -->
+<aside>
+
+  <!-- FILTROS -->
+  <div class="section">
+    <div class="section-title">Filtros</div>
+
+    <label>Tipo de delito</label>
+    <select id="filtro-tipo">
+      <option value="">Todos</option>
+    </select>
+
+    <label>Localidad</label>
+    <select id="filtro-localidad">
+      <option value="">Todas</option>
+    </select>
+
+    <label>Fecha inicio</label>
+    <input type="date" id="filtro-fecha-inicio" />
+
+    <label>Fecha fin</label>
+    <input type="date" id="filtro-fecha-fin" />
+
+    <div class="btn-group">
+      <button class="btn-primary" onclick="applyFilters()">Aplicar</button>
+      <button class="btn-secondary" onclick="resetFilters()">Limpiar</button>
+    </div>
+  </div>
+
+  <!-- CAPAS -->
+  <div class="section">
+    <div class="section-title">Capas del mapa</div>
+    <div class="toggle-row">
+      <span>Mostrar CAIs</span>
+      <label class="toggle">
+        <input type="checkbox" id="toggle-cais" checked onchange="toggleCais()" />
+        <span class="slider"></span>
+      </label>
+    </div>
+  </div>
+
+  <!-- STATS POR TIPO -->
+  <div class="section">
+    <div class="section-title">Por tipo de delito</div>
+    <div id="stats-tipo">—</div>
+  </div>
+
+  <!-- STATS POR LOCALIDAD -->
+  <div class="section">
+    <div class="section-title">Por localidad</div>
+    <div id="stats-localidad">—</div>
+  </div>
+
+  <!-- FRANJA HORARIA -->
+  <div class="section">
+    <div class="section-title">Por franja horaria</div>
+    <div id="stats-hora" class="hora-grid">—</div>
+  </div>
+
+</aside>
+
+<!-- MAPA -->
+<div id="map"></div>
+
+<!-- Scripts -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
+
+<script>
+  const API = "http://127.0.0.1:8000";
+
+  // ── MAPA ──────────────────────────────────────────
+  const map = L.map("map").setView([4.6534, -74.0836], 11);
+
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+    attribution: '&copy; OpenStreetMap &copy; CARTO',
+    maxZoom: 19,
+  }).addTo(map);
+
+  let heatLayer = null;
+  let caiLayer  = L.layerGroup().addTo(map);
+
+  // Icono CAI
+  const caiIcon = L.divIcon({
+    className: "",
+    html: `<div style="
+      background:#3fb950;width:12px;height:12px;
+      border-radius:50%;border:2px solid #fff;
+      box-shadow:0 0 6px #3fb950;"></div>`,
+    iconSize: [12, 12],
+    iconAnchor: [6, 6],
+  });
+
+  // ── POBLAR FILTROS ────────────────────────────────
+  async function loadFilters() {
+    const [tipos, localidades] = await Promise.all([
+      fetch(`${API}/tipos-delito`).then(r => r.json()),
+      fetch(`${API}/localidades`).then(r => r.json()),
+    ]);
+
+    const selTipo = document.getElementById("filtro-tipo");
+    tipos.forEach(t => {
+      const o = document.createElement("option");
+      o.value = t; o.textContent = capitalize(t);
+      selTipo.appendChild(o);
+    });
+
+    const selLoc = document.getElementById("filtro-localidad");
+    localidades.forEach(l => {
+      const o = document.createElement("option");
+      o.value = l; o.textContent = l;
+      selLoc.appendChild(o);
+    });
+  }
+
+  // ── HEATMAP ───────────────────────────────────────
+  async function loadHeatmap(params = "") {
+    const data = await fetch(`${API}/crimes/heatmap${params}`).then(r => r.json());
+
+    if (heatLayer) map.removeLayer(heatLayer);
+
+    heatLayer = L.heatLayer(data, {
+      radius: 35,
+      blur: 25,
+      maxZoom: 15,
+      gradient: { 0.2: "#ffd700", 0.5: "#ff6600", 1.0: "#cc0000" },
+    }).addTo(map);
+
+    document.getElementById("total-badge").textContent = data.length;
+  }
+
+  // ── CAIs ──────────────────────────────────────────
+  async function loadCais() {
+    const data = await fetch(`${API}/cais`).then(r => r.json());
+    caiLayer.clearLayers();
+    data.forEach(c => {
+      L.marker([c.latitud, c.longitud], { icon: caiIcon })
+        .bindPopup(`<b>${c.nombre}</b><br>${c.localidad}`)
+        .addTo(caiLayer);
+    });
+  }
+
+  function toggleCais() {
+    const cb = document.getElementById("toggle-cais");
+    if (cb.checked) map.addLayer(caiLayer);
+    else map.removeLayer(caiLayer);
+  }
+
+  // ── ESTADÍSTICAS ──────────────────────────────────
+  async function loadStats() {
+    const s = await fetch(`${API}/crimes/stats`).then(r => r.json());
+
+    // Por tipo
+    const maxTipo = s.por_tipo[0]?.cantidad || 1;
+    document.getElementById("stats-tipo").innerHTML =
+      s.por_tipo.map(r => `
+        <div class="stat-row">
+          <span class="stat-label">${capitalize(r.tipo_delito)}</span>
+          <div class="stat-bar-wrap">
+            <div class="stat-bar">
+              <div class="stat-bar-fill" style="width:${(r.cantidad/maxTipo*100).toFixed(0)}%"></div>
+            </div>
+            <span class="stat-count">${r.cantidad}</span>
+          </div>
+        </div>`).join("");
+
+    // Por localidad
+    const maxLoc = s.por_localidad[0]?.cantidad || 1;
+    document.getElementById("stats-localidad").innerHTML =
+      s.por_localidad.map(r => `
+        <div class="stat-row">
+          <span class="stat-label">${r.localidad}</span>
+          <div class="stat-bar-wrap">
+            <div class="stat-bar">
+              <div class="stat-bar-fill" style="width:${(r.cantidad/maxLoc*100).toFixed(0)}%"></div>
+            </div>
+            <span class="stat-count">${r.cantidad}</span>
+          </div>
+        </div>`).join("");
+
+    // Por hora
+    document.getElementById("stats-hora").innerHTML =
+      s.por_hora.map(r => `
+        <div class="hora-card">
+          <div class="hora-val">${r.cantidad}</div>
+          <div class="hora-lbl">${r.franja}</div>
+        </div>`).join("");
+  }
+
+  // ── FILTROS ───────────────────────────────────────
+  function buildParams() {
+    const tipo  = document.getElementById("filtro-tipo").value;
+    const loc   = document.getElementById("filtro-localidad").value;
+    const fi    = document.getElementById("filtro-fecha-inicio").value;
+    const ff    = document.getElementById("filtro-fecha-fin").value;
+    const p = new URLSearchParams();
+    if (tipo) p.append("tipo_delito", tipo);
+    if (loc)  p.append("localidad", loc);
+    if (fi)   p.append("fecha_inicio", fi);
+    if (ff)   p.append("fecha_fin", ff);
+    return p.toString() ? "?" + p.toString() : "";
+  }
+
+  async function applyFilters() {
+    const params = buildParams();
+    await loadHeatmap(params);
+  }
+
+  function resetFilters() {
+    document.getElementById("filtro-tipo").value = "";
+    document.getElementById("filtro-localidad").value = "";
+    document.getElementById("filtro-fecha-inicio").value = "";
+    document.getElementById("filtro-fecha-fin").value = "";
+    loadHeatmap();
+  }
+
+  // ── UTIL ──────────────────────────────────────────
+  function capitalize(s) {
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+
+  // ── INIT ──────────────────────────────────────────
+  async function init() {
+    await Promise.all([
+      loadFilters(),
+      loadHeatmap(),
+      loadCais(),
+      loadStats(),
+    ]);
+    document.getElementById("loading").style.display = "none";
+  }
+
+  init();
+</script>
+</body>
+</html>
