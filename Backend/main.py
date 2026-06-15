@@ -157,6 +157,38 @@ def delete_crime(crime_id: int):
     conn.close()
     return {"message": "Crimen eliminado", "id": crime_id}
 
+@app.get("/crimes/heatmap-weighted")
+def get_heatmap_weighted(
+    tipo_delito: Optional[str] = Query(None),
+    localidad:   Optional[str] = Query(None),
+):
+    """Devuelve puntos agrupados por zona con peso proporcional al conteo real."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    query = """
+        SELECT
+            ROUND(latitud, 2)  AS lat_grupo,
+            ROUND(longitud, 2) AS lng_grupo,
+            COUNT(*)           AS cantidad
+        FROM crimes
+        WHERE 1=1
+    """
+    params = []
+    if tipo_delito:
+        query += " AND tipo_delito = ?"
+        params.append(tipo_delito)
+    if localidad:
+        query += " AND localidad = ?"
+        params.append(localidad)
+
+    query += " GROUP BY lat_grupo, lng_grupo"
+    cursor.execute(query, params)
+    rows = cursor.fetchall()
+    conn.close()
+
+    return [{"lat": row["lat_grupo"], "lng": row["lng_grupo"], "count": row["cantidad"]} for row in rows]
+
 # ------------ CAIs -------------
 
 @app.get("/cais")
