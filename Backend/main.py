@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
-from database import get_connection, init_db, seed_db
+from database import get_connection, init_db, seed_cais
+from seed_real import seed_real
 from typing import Optional
 
 app = FastAPI(title="API Criminalidad Bogota")
@@ -16,8 +17,8 @@ app.add_middleware(
 @app.on_event("startup")
 def startup():
     init_db()
-    seed_db()
-
+    seed_real()
+    seed_cais()
 
 # ------------- CRIMENES --------------
 
