@@ -145,7 +145,7 @@ def add_crime(crime:dict):
 
 @app.delete("/crimes/{crime_id}")
 def delete_crime(crime_id: int):
-    """Elimina un crimen por su ID."""
+    #Elimina un crimen por su ID
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT id FROM crimes WHERE id = ?", (crime_id,))
@@ -162,7 +162,7 @@ def get_heatmap_weighted(
     tipo_delito: Optional[str] = Query(None),
     localidad:   Optional[str] = Query(None),
 ):
-    """Devuelve puntos agrupados por zona con peso proporcional al conteo real."""
+    #Devuelve puntos agrupados por zona con peso proporcional al conteo real
     conn = get_connection()
     cursor = conn.cursor()
 
